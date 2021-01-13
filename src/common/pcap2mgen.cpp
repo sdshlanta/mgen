@@ -370,6 +370,7 @@ int main(int argc, char* argv[])
     struct timeval start_time   = {0};
     struct timeval end_time     = {0};
     struct timeval tx_time      = {0};
+    size_t pkt_count            =  0;
     while(NULL != (pktData = pcap_next(pcapDevice, &hdr)))
     {
         unsigned int numBytes = maxBytes;
@@ -530,9 +531,13 @@ int main(int argc, char* argv[])
             INFLUX_TS((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000),
             INFLUX_END
         );
+        ++pkt_count;
+        if((pkt_count % 2500 ) == 0) {
+            printf("Pkt count: %lu\r", pkt_count);
+        }
         // msg.LogRecvEvent(outfile, false, false, log_rx, false, true, (UINT32*)udpPkt.AccessPayload(), flush, ttl, hdr.ts);  
     }  // end while (pcap_next())
-
+    puts("");
     if (stdin != infile) fclose(infile);
     if (stdout != outfile) fclose(outfile);
     return 0;
