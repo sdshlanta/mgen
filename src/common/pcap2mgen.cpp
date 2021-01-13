@@ -519,15 +519,15 @@ int main(int argc, char* argv[])
             INFLUX_TAG("dst_port", dst_port),
             INFLUX_TAG("flow", flow_str),
             INFLUX_TAG("proto", "udp"),
-            INFLUX_TAG("scenario", ""),
+            INFLUX_TAG("scenario", "NA"),
             INFLUX_TAG("src_addr", src_addr),
             INFLUX_TAG("src_port", src_port),
-            INFLUX_TAG("uuid", ""),
+            INFLUX_TAG("uuid", "NA"),
             INFLUX_F_FLT("delay", tv2dbl(delta_time), 6),
             INFLUX_F_STR("gps", ""),
             INFLUX_F_INT("sent", (((tx_time.tv_sec)*1000000) + tx_time.tv_usec) * 1000),
             INFLUX_F_INT("seq", seq_num),
-            INFLUX_F_INT("size", msg_len),
+            INFLUX_F_INT("size", msg.GetMsgLen()),
             INFLUX_TS((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000),
             INFLUX_END
         );
