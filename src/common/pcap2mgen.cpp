@@ -21,6 +21,22 @@
 #include "protoTime.h"
 #include "mgen.h"
 
+#include "influxdb.h"
+
+#define INFLUX_DB_HOST "127.0.0.1"
+#define INFLUX_DB_PORT 8089
+
+#define tv2dbl(tv) ((tv).tv_sec + (tv).tv_usec / 1000000.0)
+
+influx_client_t client_info = {
+    .host = strdup(INFLUX_DB_HOST),
+    .port = INFLUX_DB_PORT,
+    .db = NULL,
+    .usr = NULL,
+    .pwd = NULL
+};
+
+influx_client_t* pClient_info = &client_info;
 
 enum CmdType {CMD_INVALID, CMD_ARG, CMD_NOARG};
 // default arg values. Global for now--TODO; make this more C++ code (i.e., pcap2mgen class) and less C code
@@ -342,6 +358,16 @@ int main(int argc, char* argv[])
     
     pcap_pkthdr hdr;
     const u_char* pktData;
+    char dst_addr[16] = {0};
+    char dst_port[6] = {0};
+    char src_addr[16] = {0};
+    char src_port[6] = {0};
+    char msg_len[6] = {0};
+    char flow_str[11] = {0};
+    char seq_num[11] = {0};
+
+    struct timeval delta_time = {0};
+    
     while(NULL != (pktData = pcap_next(pcapDevice, &hdr)))
     {
         unsigned int numBytes = maxBytes;
@@ -423,7 +449,7 @@ int main(int argc, char* argv[])
         if (!srcAddr.IsValid()) continue;  // wasn't an IP packet
         
         ProtoPktUDP udpPkt;
-        if (!udpPkt.InitFromPacket(ipPkt)) continue;  // not a UDP packet
+	        if (!udpPkt.InitFromPacket(ipPkt)) continue;  // not a UDP packet
         
         MgenMsg msg;
         if (!msg.Unpack((UINT32*)udpPkt.AccessPayload(), udpPkt.GetPayloadLength(), false, false))
@@ -474,10 +500,35 @@ int main(int argc, char* argv[])
             // we could dalso keep the analytic in a list and prune stale ones
         }
 
-        // Should we make "flush" true by default?
-        msg.LogRecvEvent(outfile, false, false, log_rx, false, true, (UINT32*)udpPkt.AccessPayload(), flush, ttl, hdr.ts);        
+        inet_ntop(AF_INET, msg.GetDstAddr().GetRawHostAddress(), dst_addr, sizeof(dst_addr));
+        snprintf(dst_port, sizeof(dst_port), "%hu", msg.GetDstAddr().GetPort());
+        inet_ntop(AF_INET, msg.GetDstAddr().GetRawHostAddress(), src_addr, sizeof(src_addr));
+        snprintf(src_port, sizeof(src_port), "%hu", msg.GetSrcAddr().GetPort());
+        snprintf(msg_len, sizeof(msg_len), "%hu", msg.GetMsgLen());
+        snprintf(flow_str, sizeof(flow_str), "%u", msg.GetFlowId());
+        snprintf(seq_num, sizeof(seq_num), "%u", msg.GetFlowId());
+
+        delta_time.tv_sec = hdr.ts.tv_sec - msg.GetTxTime().tv_sec;
+        delta_time.tv_usec = hdr.ts.tv_usec - msg.GetTxTime().tv_usec;
+
+        send_udp(pClient_info,
+            INFLUX_MEAS("mgen_recv"),
+            INFLUX_TAG("dst_addr", dst_addr),
+            INFLUX_TAG("dst_port", dst_port),
+            INFLUX_TAG("flow", flow_str),
+            INFLUX_TAG("proto", "udp"),
+            INFLUX_TAG("src_addr", src_addr),
+            INFLUX_TAG("src_port", src_port),
+            INFLUX_F_FLT("delay", tv2dbl(delta_time), 6),
+            INFLUX_F_STR("gps", ""),
+            INFLUX_F_STR("size", msg_len),
+            INFLUX_F_STR("seq", seq_num),
+
+            INFLUX_TS((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000),
+            INFLUX_END
+        );
     }  // end while (pcap_next())
-    
+
     if (stdin != infile) fclose(infile);
     if (stdout != outfile) fclose(outfile);
     return 0;
