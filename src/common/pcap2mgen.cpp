@@ -1,7 +1,7 @@
 
 
 // Makes an MGEN text log file from a pcap trace file
-// (the pcap log time is used as MGEN "recv" time) 
+// (the pcap log time is used as MGEN "recv" time)
 // Assumes UDP packets in tcpdump trace file (pcap file) are
 // MGEN packets and parses to build an MGEN log file
 
@@ -54,7 +54,7 @@ bool log_rx = true;
 bool flush = false;
 
 
-const char* const CMD_LIST[] = 
+const char* const CMD_LIST[] =
 {
     "-report",    // Grab MGEN REPORT messages from pcap file
     "-analytic",  // Grab MGEN REPORT messages from pcap file
@@ -63,7 +63,7 @@ const char* const CMD_LIST[] =
     "-trace",     // Prepends MGEN log lines with epoch time and MAC src/addr info
     "+rxlog",     // Turns on/off recv log info. For report messages only
     "-flush",     // flush writes to outfile
-    "+window",     // Sets analytic window
+    "+window",    // Sets analytic window
     NULL
 };
 
@@ -130,7 +130,7 @@ bool OnCommand(const char* cmd, const char* val)
 {
     CmdType type = GetCmdType(cmd);
     unsigned int len = strlen(cmd);
-    char lowerCmd[32];  // all commands < 32 characters    
+    char lowerCmd[32];  // all commands < 32 characters
     len = len < 31 ? len : 31;
     unsigned int i;
     for (i = 0; i < (len + 1); i++)
@@ -150,7 +150,7 @@ bool OnCommand(const char* cmd, const char* val)
     {
         compute_analytics = true;
     }
-    
+
     else if (!strncmp("report", lowerCmd, len))
     {
         compute_analytics = true;
@@ -289,7 +289,7 @@ int main(int argc, char* argv[])
     //         break;
     //     }
     // }
-    
+
     fprintf(stderr,"Pcap Version: %s\n",pcap_lib_version());
 
     // if(debug)
@@ -298,9 +298,9 @@ int main(int argc, char* argv[])
     //     std::cout << "compute_analytics = " << compute_analytics << std::endl;
     // }
 
-    
+
     // Use stdin/stdout by default
-    
+
     // switch(argc - argOffset)
     // {
     //     case 1:
@@ -334,7 +334,7 @@ int main(int argc, char* argv[])
     // }  // end switch(argc)
 
     // flow_list.SetDefaultLabel(default_flow_label);
-    
+
     char pcapErrBuf[PCAP_ERRBUF_SIZE+1];
     pcapErrBuf[PCAP_ERRBUF_SIZE] = '\0';
     pcap_t* pcapDevice = pcap_fopen_offline(infile, pcapErrBuf);
@@ -345,34 +345,36 @@ int main(int argc, char* argv[])
         if (stdout != outfile) fclose(outfile);
         return -1;
     }
-    
+
     int linkType = pcap_datalink(pcapDevice);
-    
-    
-    
-    
+
+
+
+
     UINT32 alignedBuffer[4096/4];   // 128 buffer for packet parsing
     memset(alignedBuffer, 0, 4096);
-    UINT16* ethBuffer = ((UINT16*)alignedBuffer) + 1; 
+    UINT16* ethBuffer = ((UINT16*)alignedBuffer) + 1;
     unsigned int maxBytes = 4096 - 2;  // due to offset, can only use 4094 bytes of buffer
-    
+
     pcap_pkthdr hdr;
     const u_char* pktData;
-    char dst_addr[16] = {0};
-    char dst_port[6] = {0};
-    char src_addr[16] = {0};
-    char src_port[6] = {0};
-    char msg_len[6] = {0};
-    char flow_str[11] = {0};
-    char seq_num[11] = {0};
+    char dst_addr[16]   = {0};
+    char dst_port[6]    = {0};
+    char src_addr[16]   = {0};
+    char src_port[6]    = {0};
+    char msg_len[6]     = {0};
+    char flow_str[11]   = {0};
+    char seq_num[11]    = {0};
 
-    struct timeval delta_time = {0};
-    
+    struct timeval delta_time   = {0};
+    struct timeval start_time   = {0};
+    struct timeval end_time     = {0};
+    struct timeval tx_time      = {0};
     while(NULL != (pktData = pcap_next(pcapDevice, &hdr)))
     {
         unsigned int numBytes = maxBytes;
         if (hdr.caplen < numBytes) numBytes = hdr.caplen;
-        
+
         ProtoPktETH::Type ethType;
         ProtoAddress srcMac, dstMac;
         unsigned int ipLength;  // will be IP packet payload size (incl. IP header)
@@ -398,7 +400,7 @@ int main(int argc, char* argv[])
             {
                 fprintf(stderr, "pcap2mgen error: invalid Ether frame in pcap file\n");
                 continue;
-            }    
+            }
             ethType = ethPkt.GetType();
             ipBuffer = ethPkt.AccessPayload();
             ipBufferBytes = ethPkt.GetBufferLength() - ethPkt.GetHeaderLength();
@@ -426,7 +428,7 @@ int main(int argc, char* argv[])
                     ip4Pkt.GetSrcAddr(srcAddr);
                     ttl = ip4Pkt.GetTTL();
                     break;
-                } 
+                }
                 case 6:
                 {
                     ProtoPktIPv6 ip6Pkt(ipPkt);
@@ -444,13 +446,13 @@ int main(int argc, char* argv[])
             //TRACE("pcap2mgen IP packet dst>%s ", dstAddr.GetHostString());
             //TRACE(" src>%s length>%d\n", srcAddr.GetHostString(), ipPkt.GetLength());
         }
-        
-            
+
+
         if (!srcAddr.IsValid()) continue;  // wasn't an IP packet
-        
+
         ProtoPktUDP udpPkt;
 	        if (!udpPkt.InitFromPacket(ipPkt)) continue;  // not a UDP packet
-        
+
         MgenMsg msg;
         if (!msg.Unpack((UINT32*)udpPkt.AccessPayload(), udpPkt.GetPayloadLength(), false, false))
         {
@@ -460,7 +462,7 @@ int main(int argc, char* argv[])
         msg.SetProtocol(UDP);
         srcAddr.SetPort(udpPkt.GetSrcPort());
         msg.SetSrcAddr(srcAddr);
-        
+
         if (trace && (DLT_LINUX_SLL != linkType))
         {
             fprintf(outfile, "%lu.%lu ", (unsigned long)hdr.ts.tv_sec, (unsigned long)hdr.ts.tv_usec);
@@ -506,10 +508,9 @@ int main(int argc, char* argv[])
         snprintf(src_port, sizeof(src_port), "%hu", msg.GetSrcAddr().GetPort());
         snprintf(msg_len, sizeof(msg_len), "%hu", msg.GetMsgLen());
         snprintf(flow_str, sizeof(flow_str), "%u", msg.GetFlowId());
-        snprintf(seq_num, sizeof(seq_num), "%u", msg.GetFlowId());
-
-        delta_time.tv_sec = hdr.ts.tv_sec - msg.GetTxTime().tv_sec;
-        delta_time.tv_usec = hdr.ts.tv_usec - msg.GetTxTime().tv_usec;
+        tx_time = (msg.GetTxTime());
+        delta_time.tv_sec = hdr.ts.tv_sec - tx_time.tv_sec;
+        delta_time.tv_usec = hdr.ts.tv_usec - tx_time.tv_usec;
 
         send_udp(pClient_info,
             INFLUX_MEAS("mgen_recv"),
@@ -517,16 +518,19 @@ int main(int argc, char* argv[])
             INFLUX_TAG("dst_port", dst_port),
             INFLUX_TAG("flow", flow_str),
             INFLUX_TAG("proto", "udp"),
+            INFLUX_TAG("scenario", ""),
             INFLUX_TAG("src_addr", src_addr),
             INFLUX_TAG("src_port", src_port),
+            INFLUX_TAG("uuid", ""),
             INFLUX_F_FLT("delay", tv2dbl(delta_time), 6),
             INFLUX_F_STR("gps", ""),
-            INFLUX_F_STR("size", msg_len),
-            INFLUX_F_STR("seq", seq_num),
-
+            INFLUX_F_INT("sent", (((tx_time.tv_sec)*1000000) + tx_time.tv_usec) * 1000),
+            INFLUX_F_INT("seq", seq_num),
+            INFLUX_F_INT("size", msg_len),
             INFLUX_TS((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000),
             INFLUX_END
         );
+        // msg.LogRecvEvent(outfile, false, false, log_rx, false, true, (UINT32*)udpPkt.AccessPayload(), flush, ttl, hdr.ts);  
     }  // end while (pcap_next())
 
     if (stdin != infile) fclose(infile);
