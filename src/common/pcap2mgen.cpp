@@ -510,8 +510,8 @@ int main(int argc, char* argv[])
         snprintf(msg_len, sizeof(msg_len), "%hu", msg.GetMsgLen());
         snprintf(flow_str, sizeof(flow_str), "%u", msg.GetFlowId());
         tx_time = (msg.GetTxTime());
-        delta_time.tv_sec = hdr.ts.tv_sec - tx_time.tv_sec;
-        delta_time.tv_usec = hdr.ts.tv_usec - tx_time.tv_usec;
+        ProtoTime rxTime(hdr.ts);
+        ProtoTime txTime(tx_time);
 
         send_udp(pClient_info,
             INFLUX_MEAS("mgen_recv"),
@@ -523,21 +523,21 @@ int main(int argc, char* argv[])
             INFLUX_TAG("src_addr", src_addr),
             INFLUX_TAG("src_port", src_port),
             INFLUX_TAG("uuid", "NA"),
-            INFLUX_F_FLT("delay", tv2dbl(delta_time), 6),
+            INFLUX_F_FLT("delay", rxTime.GetValue() - txTime.GetValue(), 6),
             INFLUX_F_STR("gps", ""),
-            INFLUX_F_INT("sent", (((tx_time.tv_sec)*1000000) + tx_time.tv_usec) * 1000),
-            INFLUX_F_INT("seq", seq_num),
+            INFLUX_F_INT("sent", (((tx_time.tv_sec)*1000000) + tx_time.tv_usec)),
+            INFLUX_F_INT("seq", msg.GetSeqNum()),
             INFLUX_F_INT("size", msg.GetMsgLen()),
             INFLUX_TS((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000),
             INFLUX_END
         );
         ++pkt_count;
-        if((pkt_count % 2500 ) == 0) {
-            printf("Pkt count: %lu\r", pkt_count);
-        }
+        // if((pkt_count % 2500 ) == 0) {
+        //     printf("Pkt count: %lu %lu\r", (((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec), hdr.ts.tv_usec);
+        // }
         // msg.LogRecvEvent(outfile, false, false, log_rx, false, true, (UINT32*)udpPkt.AccessPayload(), flush, ttl, hdr.ts);  
     }  // end while (pcap_next())
-    puts("");
+    printf("Total pkts processed: %lu\n", pkt_count);
     if (stdin != infile) fclose(infile);
     if (stdout != outfile) fclose(outfile);
     return 0;
