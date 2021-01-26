@@ -23,7 +23,7 @@
 
 #include "influxdb.h"
 
-#define MAX_LINE_SIZE (8972)
+#define MAX_LINE_SIZE (50000)
 
 #define INFLUX_DB_HOST "127.0.0.1"
 #define INFLUX_DB_PORT 8089
