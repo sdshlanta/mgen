@@ -70,7 +70,7 @@ const char* const CMD_LIST[] =
     NULL
 };
 
-char* scenario_name = strdup("NA");
+volatile char* scenario_name = strdup("NA");
 
 void Usage()
 {
@@ -384,8 +384,8 @@ int main(int argc, char* argv[])
     struct timeval tx_time      = {0};
     size_t pkt_count            =  0;
     char* line                  = (char*)calloc(MAX_LINE_SIZE, sizeof(uint8_t));
-    int used                    =  0;
-    int len                     =  MAX_LINE_SIZE;
+    volatile int used           =  0;
+    volatile int len            =  MAX_LINE_SIZE;
     while(NULL != (pktData = pcap_next(pcapDevice, &hdr)))
     {
         unsigned int numBytes = maxBytes;
@@ -544,7 +544,7 @@ int main(int argc, char* argv[])
             INFLUX_F_INT("sent", (((tx_time.tv_sec)*1000000) + tx_time.tv_usec)),
             INFLUX_F_INT("seq", msg.GetSeqNum()),
             INFLUX_F_INT("size", msg.GetMsgLen()),
-            INFLUX_TS((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec)),
+            INFLUX_TS(((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000) + (pkt_count & 0x0000000000001FFF)),
             INFLUX_END
         );
         ++pkt_count;
@@ -561,6 +561,6 @@ int main(int argc, char* argv[])
     if (stdin != infile) fclose(infile);
     if (stdout != outfile) fclose(outfile);
     free(line);
-    free(scenario_name);
+    free((void*)scenario_name);
     return 0;
 }  // end main()
