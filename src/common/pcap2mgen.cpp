@@ -26,7 +26,7 @@
 #define MAX_LINE_SIZE (8972)
 
 #define INFLUX_DB_HOST "127.0.0.1"
-#define INFLUX_DB_PORT 50000
+#define INFLUX_DB_PORT 8089
 
 #define tv2dbl(tv) ((tv).tv_sec + (tv).tv_usec / 1000000.0)
 
@@ -429,7 +429,7 @@ int main(int argc, char* argv[])
         }
         ProtoPktIP ipPkt;
         ProtoAddress srcAddr, dstAddr;
-        int ttl = -1;
+        int ttl;
         if ((ProtoPktETH::IP == ethType) ||
             (ProtoPktETH::IPv6 == ethType))
         {
@@ -458,6 +458,7 @@ int main(int argc, char* argv[])
                 }
                 default:
                 {
+                    ttl = -1;
                     PLOG(PL_ERROR,"pcap2mgen Error: Invalid IP pkt version.\n");
                     break;
                 }
