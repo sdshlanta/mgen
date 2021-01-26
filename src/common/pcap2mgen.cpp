@@ -23,8 +23,10 @@
 
 #include "influxdb.h"
 
+#define MAX_LINE_SIZE (8972)
+
 #define INFLUX_DB_HOST "127.0.0.1"
-#define INFLUX_DB_PORT 8089
+#define INFLUX_DB_PORT 50000
 
 #define tv2dbl(tv) ((tv).tv_sec + (tv).tv_usec / 1000000.0)
 
@@ -64,9 +66,11 @@ const char* const CMD_LIST[] =
     "+rxlog",     // Turns on/off recv log info. For report messages only
     "-flush",     // flush writes to outfile
     "+window",    // Sets analytic window
+    "+scenario",  // The name of the scenario 
     NULL
 };
 
+char* scenario_name = NULL;
 
 void Usage()
 {
@@ -178,6 +182,18 @@ bool OnCommand(const char* cmd, const char* val)
     else if (!strncmp("flush", lowerCmd, len))
     {
         flush = true;
+    }
+    else if (!strncmp("scenario", lowerCmd, len))
+    {
+        if(NULL != val)
+        {
+            scenario_name = strdup(val);
+        }
+        else
+        {
+            scenario_name = strdup("NA");
+        }
+        
     }
     else if (!strncmp("rxlog", lowerCmd, len))
     {
@@ -364,13 +380,15 @@ int main(int argc, char* argv[])
     char src_port[6]    = {0};
     char msg_len[6]     = {0};
     char flow_str[11]   = {0};
-    char seq_num[11]    = {0};
 
     struct timeval delta_time   = {0};
     struct timeval start_time   = {0};
     struct timeval end_time     = {0};
     struct timeval tx_time      = {0};
     size_t pkt_count            =  0;
+    char* line                  = (char*)calloc(MAX_LINE_SIZE, sizeof(uint8_t));
+    int used                    =  0;
+    int len                     =  MAX_LINE_SIZE;
     while(NULL != (pktData = pcap_next(pcapDevice, &hdr)))
     {
         unsigned int numBytes = maxBytes;
@@ -512,14 +530,14 @@ int main(int argc, char* argv[])
         tx_time = (msg.GetTxTime());
         ProtoTime rxTime(hdr.ts);
         ProtoTime txTime(tx_time);
-
-        send_udp(pClient_info,
-            INFLUX_MEAS("mgen_recv"),
+        // send_udp(pClient_info,
+        used = format_line(&line, &len, used,
+            INFLUX_MEAS("mgen_recv_test"),
             INFLUX_TAG("dst_addr", dst_addr),
             INFLUX_TAG("dst_port", dst_port),
             INFLUX_TAG("flow", flow_str),
             INFLUX_TAG("proto", "udp"),
-            INFLUX_TAG("scenario", "NA"),
+            INFLUX_TAG("scenario", scenario_name),
             INFLUX_TAG("src_addr", src_addr),
             INFLUX_TAG("src_port", src_port),
             INFLUX_TAG("uuid", "NA"),
@@ -528,17 +546,23 @@ int main(int argc, char* argv[])
             INFLUX_F_INT("sent", (((tx_time.tv_sec)*1000000) + tx_time.tv_usec)),
             INFLUX_F_INT("seq", msg.GetSeqNum()),
             INFLUX_F_INT("size", msg.GetMsgLen()),
-            INFLUX_TS((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000),
+            INFLUX_TS((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec)),
             INFLUX_END
         );
         ++pkt_count;
-        // if((pkt_count % 2500 ) == 0) {
-        //     printf("Pkt count: %lu %lu\r", (((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec), hdr.ts.tv_usec);
-        // }
+        if(used == MAX_LINE_SIZE - 1000) {
+            send_udp_line(pClient_info, line, used);
+            used = 0;
+        }
         // msg.LogRecvEvent(outfile, false, false, log_rx, false, true, (UINT32*)udpPkt.AccessPayload(), flush, ttl, hdr.ts);  
     }  // end while (pcap_next())
     printf("Total pkts processed: %lu\n", pkt_count);
+    if(used > 0) {
+        send_udp_line(pClient_info, line, used);
+    }
     if (stdin != infile) fclose(infile);
     if (stdout != outfile) fclose(outfile);
+    free(line);
+    free(scenario_name);
     return 0;
 }  // end main()
