@@ -548,7 +548,7 @@ int main(int argc, char* argv[])
             INFLUX_END
         );
         ++pkt_count;
-        if(used == MAX_LINE_SIZE - 1000) {
+        if(MAX_LINE_SIZE - 1000 <= used) {
             send_udp_line(pClient_info, line, used);
             used = 0;
         }
