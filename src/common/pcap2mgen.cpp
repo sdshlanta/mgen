@@ -31,7 +31,7 @@
 #define tv2dbl(tv) ((tv).tv_sec + (tv).tv_usec / 1000000.0)
 
 influx_client_t client_info = {
-    .host = INFLUX_DB_HOST,
+    .host = strdup(INFLUX_DB_HOST),
     .port = INFLUX_DB_PORT,
     .db = NULL,
     .usr = NULL,
