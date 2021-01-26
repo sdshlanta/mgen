@@ -31,7 +31,7 @@
 #define tv2dbl(tv) ((tv).tv_sec + (tv).tv_usec / 1000000.0)
 
 influx_client_t client_info = {
-    .host = strdup(INFLUX_DB_HOST),
+    .host = INFLUX_DB_HOST,
     .port = INFLUX_DB_PORT,
     .db = NULL,
     .usr = NULL,
@@ -70,7 +70,7 @@ const char* const CMD_LIST[] =
     NULL
 };
 
-char* scenario_name = NULL;
+char* scenario_name = strdup("NA");
 
 void Usage()
 {
@@ -187,11 +187,8 @@ bool OnCommand(const char* cmd, const char* val)
     {
         if(NULL != val)
         {
+            free(scenario_name);
             scenario_name = strdup(val);
-        }
-        else
-        {
-            scenario_name = strdup("NA");
         }
         
     }
