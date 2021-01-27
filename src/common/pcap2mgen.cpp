@@ -398,7 +398,7 @@ int main(int argc, char* argv[])
     size_t pkt_count            =  0;
     char* line                  = (char*)calloc(MAX_LINE_SIZE + 1000, sizeof(uint8_t));
     int used                    =  0;
-    int len                     =  MAX_LINE_SIZE;
+    volatile int len            =  MAX_LINE_SIZE;
     ProtoAddress addr = ProtoAddress();
     while(NULL != (pktData = pcap_next(pcapDevice, &hdr)))
     {
