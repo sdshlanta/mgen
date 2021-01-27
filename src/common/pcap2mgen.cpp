@@ -545,7 +545,7 @@ int main(int argc, char* argv[])
                 snprintf(flow_str, sizeof(flow_str), "%u", report.GetFlowId());
                 puts(flow_str);
                 used = format_line(&line, &len, used,
-                    INFLUX_MEAS("mgen_report_post"),
+                    INFLUX_MEAS("mgen_report_post_test"),
                     INFLUX_TAG("dst_addr", dst_addr),
                     INFLUX_TAG("dst_port", dst_port),
                     INFLUX_TAG("flow", flow_str),
