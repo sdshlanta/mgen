@@ -554,7 +554,7 @@ int main(int argc, char* argv[])
                     INFLUX_F_FLT("min_latency", report.GetLatencyMin(), 6),
                     INFLUX_F_FLT("max_latency", report.GetLatencyMax(), 6),
                     INFLUX_F_FLT("avg_latency", report.GetLatencyAve(), 6),
-                    INFLUX_TS(((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000) + (report_count & 0x1FFF)),
+                    INFLUX_TS(((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000)),
                     INFLUX_END
                 );
                 // report.Log(outfile, rxTime, rxTime, false);
