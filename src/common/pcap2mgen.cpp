@@ -66,11 +66,13 @@ const char* const CMD_LIST[] =
     "+rxlog",     // Turns on/off recv log info. For report messages only
     "-flush",     // flush writes to outfile
     "+window",    // Sets analytic window
-    "+scenario",  // The name of the scenario 
+    "+scenario",  // The name of the scenario
+    "+uuid",      // The UUID of the scenario
     NULL
 };
 
 char* scenario_name = strdup("NA");
+char* scenario_uuid = strdup("NA");
 
 void Usage()
 {
@@ -190,6 +192,16 @@ bool OnCommand(const char* cmd, const char* val)
             free(scenario_name);
             scenario_name = strdup(val);
         }
+        fprintf(stderr, "pcap2mgen OnCommand() Error: missing argument to scenario\n");
+    }
+    else if (!strncmp("uuid", lowerCmd, len))
+    {
+        if(NULL != val)
+        {
+            free(scenario_uuid);
+            scenario_uuid = strdup(val);
+        }
+        fprintf(stderr, "pcap2mgen OnCommand() Error: missing argument to uuid\n");
 
     }
     else if (!strncmp("rxlog", lowerCmd, len))
@@ -535,7 +547,7 @@ int main(int argc, char* argv[])
                     INFLUX_TAG("scenario", scenario_name),
                     INFLUX_TAG("src_addr", src_addr),
                     INFLUX_TAG("src_port", src_port),
-                    INFLUX_TAG("uuid", "NA"),
+                    INFLUX_TAG("uuid", scenario_uuid),
                     INFLUX_F_FLT("loss", report.GetLossFraction(), 6),
                     INFLUX_F_FLT("rate", report.GetRateAve(), 4),
                     INFLUX_F_FLT("window", report.GetWindowSize(), 6),
@@ -573,7 +585,7 @@ int main(int argc, char* argv[])
         //     INFLUX_TAG("scenario", scenario_name),
         //     INFLUX_TAG("src_addr", src_addr),
         //     INFLUX_TAG("src_port", src_port),
-        //     INFLUX_TAG("uuid", "NA"),
+        //     INFLUX_TAG("uuid", scenario_uuid),
         //     INFLUX_F_FLT("delay", rxTime.GetValue() - txTime.GetValue(), 6),
         //     INFLUX_F_STR("gps", ""),
         //     INFLUX_F_INT("sent", ((((tx_time.tv_sec)*1000000) + tx_time.tv_usec)* 1000)),
@@ -589,6 +601,7 @@ int main(int argc, char* argv[])
         // }
         // msg.LogRecvEvent(outfile, false, false, log_rx, false, true, (UINT32*)udpPkt.AccessPayload(), flush, ttl, hdr.ts);  
     }  // end while (pcap_next())
+    puts("");
     printf("Total reports generated: %lu\n", report_count);
     if(used > 0) {
         send_udp_line(pClient_info, line, used);
@@ -597,5 +610,6 @@ int main(int argc, char* argv[])
     if (stdout != outfile) fclose(outfile);
     free(line);
     free(scenario_name);
+    free(scenario_uuid);
     return 0;
 }  // end main()
