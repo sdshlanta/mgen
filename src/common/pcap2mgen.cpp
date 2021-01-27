@@ -23,7 +23,7 @@
 
 #include "influxdb.h"
 
-#define MAX_LINE_SIZE (50000)
+#define MAX_LINE_SIZE (8000)
 
 #define INFLUX_DB_HOST "127.0.0.1"
 #define INFLUX_DB_PORT 8089
@@ -70,7 +70,7 @@ const char* const CMD_LIST[] =
     NULL
 };
 
-volatile char* scenario_name = strdup("NA");
+char* scenario_name = strdup("NA");
 
 void Usage()
 {
@@ -190,7 +190,7 @@ bool OnCommand(const char* cmd, const char* val)
             free(scenario_name);
             scenario_name = strdup(val);
         }
-        
+
     }
     else if (!strncmp("rxlog", lowerCmd, len))
     {
@@ -382,10 +382,11 @@ int main(int argc, char* argv[])
     struct timeval start_time   = {0};
     struct timeval end_time     = {0};
     struct timeval tx_time      = {0};
-    size_t pkt_count            =  0;
-    char* line                  = (char*)calloc(MAX_LINE_SIZE, sizeof(uint8_t));
-    volatile int used           =  0;
-    volatile int len            =  MAX_LINE_SIZE;
+    size_t report_count         =  0;
+    char* line                  = (char*)calloc(MAX_LINE_SIZE + 1000, sizeof(uint8_t));
+    int used                    =  0;
+    int len                     =  MAX_LINE_SIZE;
+    ProtoAddress addr = ProtoAddress();
     while(NULL != (pktData = pcap_next(pcapDevice, &hdr)))
     {
         unsigned int numBytes = maxBytes;
@@ -514,47 +515,83 @@ int main(int argc, char* argv[])
             if (analytic->Update(rxTime, msg.GetMsgLen(), ProtoTime(msg.GetTxTime()), msg.GetSeqNum()))
             {
                 const MgenAnalytic::Report& report = analytic->GetReport(rxTime);
-                report.Log(outfile, rxTime, rxTime, false);
+
+                report.GetDstAddr(addr);
+                inet_ntop(AF_INET, addr.GetRawHostAddress(), dst_addr, sizeof(dst_addr));
+                snprintf(dst_port, sizeof(dst_port), "%hu", addr.GetPort());
+                report.GetSrcAddr(addr);
+
+                inet_ntop(AF_INET, addr.GetRawHostAddress(), src_addr, sizeof(src_addr));
+                snprintf(src_port, sizeof(src_port), "%hu", addr.GetPort());
+
+                snprintf(flow_str, sizeof(flow_str), "%u", report.GetFlowId());
+
+                used = format_line(&line, &len, used,
+                    INFLUX_MEAS("mgen_report_post"),
+                    INFLUX_TAG("dst_addr", dst_addr),
+                    INFLUX_TAG("dst_port", dst_port),
+                    INFLUX_TAG("flow", flow_str),
+                    INFLUX_TAG("proto", "udp"),
+                    INFLUX_TAG("scenario", scenario_name),
+                    INFLUX_TAG("src_addr", src_addr),
+                    INFLUX_TAG("src_port", src_port),
+                    INFLUX_TAG("uuid", "NA"),
+                    INFLUX_F_FLT("loss", report.GetLossFraction(), 6),
+                    INFLUX_F_FLT("rate", report.GetRateAve(), 4),
+                    INFLUX_F_FLT("window", report.GetWindowSize(), 6),
+                    INFLUX_F_FLT("min_latency", report.GetLatencyMin(), 6),
+                    INFLUX_F_FLT("max_latency", report.GetLatencyMax(), 6),
+                    INFLUX_F_FLT("avg_latency", report.GetLatencyAve(), 6),
+                    INFLUX_TS(((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000) + (report_count & 0x1FFF)),
+                    INFLUX_END
+                );
+                bzero(line, used+1);
+                // report.Log(outfile, rxTime, rxTime, false);
+                if(MAX_LINE_SIZE <= used) {
+                    send_udp_line(pClient_info, line, used);
+                    used = 0;
+                }
+                used = 0;
+
             }
             // we could dalso keep the analytic in a list and prune stale ones
         }
-
-        inet_ntop(AF_INET, msg.GetDstAddr().GetRawHostAddress(), dst_addr, sizeof(dst_addr));
-        snprintf(dst_port, sizeof(dst_port), "%hu", msg.GetDstAddr().GetPort());
-        inet_ntop(AF_INET, msg.GetDstAddr().GetRawHostAddress(), src_addr, sizeof(src_addr));
-        snprintf(src_port, sizeof(src_port), "%hu", msg.GetSrcAddr().GetPort());
-        snprintf(msg_len, sizeof(msg_len), "%hu", msg.GetMsgLen());
-        snprintf(flow_str, sizeof(flow_str), "%u", msg.GetFlowId());
-        tx_time = (msg.GetTxTime());
-        ProtoTime rxTime(hdr.ts);
-        ProtoTime txTime(tx_time);
-        // send_udp(pClient_info,
-        used = format_line(&line, &len, used,
-            INFLUX_MEAS("mgen_recv_test"),
-            INFLUX_TAG("dst_addr", dst_addr),
-            INFLUX_TAG("dst_port", dst_port),
-            INFLUX_TAG("flow", flow_str),
-            INFLUX_TAG("proto", "udp"),
-            INFLUX_TAG("scenario", scenario_name),
-            INFLUX_TAG("src_addr", src_addr),
-            INFLUX_TAG("src_port", src_port),
-            INFLUX_TAG("uuid", "NA"),
-            INFLUX_F_FLT("delay", rxTime.GetValue() - txTime.GetValue(), 6),
-            INFLUX_F_STR("gps", ""),
-            INFLUX_F_INT("sent", (((tx_time.tv_sec)*1000000) + tx_time.tv_usec)),
-            INFLUX_F_INT("seq", msg.GetSeqNum()),
-            INFLUX_F_INT("size", msg.GetMsgLen()),
-            INFLUX_TS(((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000) + (pkt_count & 0x0000000000001FFF)),
-            INFLUX_END
-        );
-        ++pkt_count;
-        if(MAX_LINE_SIZE - 1000 <= used) {
-            send_udp_line(pClient_info, line, used);
-            used = 0;
-        }
+        // inet_ntop(AF_INET, msg.GetDstAddr().GetRawHostAddress(), dst_addr, sizeof(dst_addr));
+        // snprintf(dst_port, sizeof(dst_port), "%hu", msg.GetDstAddr().GetPort());
+        // inet_ntop(AF_INET, msg.GetSrcAddr().GetRawHostAddress(), src_addr, sizeof(src_addr));
+        // snprintf(src_port, sizeof(src_port), "%hu", msg.GetSrcAddr().GetPort());
+        // snprintf(msg_len, sizeof(msg_len), "%hu", msg.GetMsgLen());
+        // snprintf(flow_str, sizeof(flow_str), "%u", msg.GetFlowId());
+        // tx_time = (msg.GetTxTime());
+        // ProtoTime rxTime(hdr.ts);
+        // ProtoTime txTime(tx_time);
+        // // send_udp(pClient_info,
+        // used = format_line(&line, &len, used,
+        //     INFLUX_MEAS("mgen_recv_test"),
+        //     INFLUX_TAG("dst_addr", dst_addr),
+        //     INFLUX_TAG("dst_port", dst_port),
+        //     INFLUX_TAG("flow", flow_str),
+        //     INFLUX_TAG("proto", "udp"),
+        //     INFLUX_TAG("scenario", scenario_name),
+        //     INFLUX_TAG("src_addr", src_addr),
+        //     INFLUX_TAG("src_port", src_port),
+        //     INFLUX_TAG("uuid", "NA"),
+        //     INFLUX_F_FLT("delay", rxTime.GetValue() - txTime.GetValue(), 6),
+        //     INFLUX_F_STR("gps", ""),
+        //     INFLUX_F_INT("sent", ((((tx_time.tv_sec)*1000000) + tx_time.tv_usec)* 1000)),
+        //     INFLUX_F_INT("seq", msg.GetSeqNum()),
+        //     INFLUX_F_INT("size", msg.GetMsgLen()),
+        //     INFLUX_TS(((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000) + (pkt_count & 0x0000000000001FFF)),
+        //     INFLUX_END
+        // );
+        // ++pkt_count;
+        // if(MAX_LINE_SIZE - 1000 <= used) {
+        //     send_udp_line(pClient_info, line, used);
+        //     used = 0;
+        // }
         // msg.LogRecvEvent(outfile, false, false, log_rx, false, true, (UINT32*)udpPkt.AccessPayload(), flush, ttl, hdr.ts);  
     }  // end while (pcap_next())
-    printf("Total pkts processed: %lu\n", pkt_count);
+    printf("Total reports generated: %lu\n", report_count);
     if(used > 0) {
         send_udp_line(pClient_info, line, used);
     }
