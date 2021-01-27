@@ -596,6 +596,6 @@ int main(int argc, char* argv[])
     if (stdin != infile) fclose(infile);
     if (stdout != outfile) fclose(outfile);
     free(line);
-    free((void*)scenario_name);
+    free(scenario_name);
     return 0;
 }  // end main()
