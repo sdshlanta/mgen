@@ -395,6 +395,7 @@ int main(int argc, char* argv[])
     struct timeval end_time     = {0};
     struct timeval tx_time      = {0};
     size_t report_count         =  0;
+    size_t pkt_count            =  0;
     char* line                  = (char*)calloc(MAX_LINE_SIZE + 1000, sizeof(uint8_t));
     int used                    =  0;
     int len                     =  MAX_LINE_SIZE;
@@ -594,15 +595,17 @@ int main(int argc, char* argv[])
         //     INFLUX_TS(((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000) + (pkt_count & 0x0000000000001FFF)),
         //     INFLUX_END
         // );
-        // ++pkt_count;
+        ++pkt_count;
         // if(MAX_LINE_SIZE - 1000 <= used) {
         //     send_udp_line(pClient_info, line, used);
         //     used = 0;
         // }
         // msg.LogRecvEvent(outfile, false, false, log_rx, false, true, (UINT32*)udpPkt.AccessPayload(), flush, ttl, hdr.ts);  
     }  // end while (pcap_next())
-    puts("");
+
     printf("Total reports generated: %lu\n", report_count);
+    printf("Total reports generated: %lu\n", pkt_count);
+
     if(used > 0) {
         send_udp_line(pClient_info, line, used);
     }
