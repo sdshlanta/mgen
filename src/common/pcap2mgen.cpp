@@ -543,7 +543,13 @@ int main(int argc, char* argv[])
                 snprintf(src_port, sizeof(src_port), "%hu", addr.GetPort());
                 bzero(flow_str, sizeof(flow_str));
                 snprintf(flow_str, sizeof(flow_str), "%u", report.GetFlowId());
-                puts(flow_str);
+                printf(
+                    "flag: %d, msg flow id: %u, report flow id: %s",
+                    report.FlagIsSet(report.FLAG_FLOW_ID),
+                    msg.GetFlowId(),
+                    flow_str
+                );
+
                 used = format_line(&line, &len, used,
                     INFLUX_MEAS("mgen_report_post_test"),
                     INFLUX_TAG("dst_addr", dst_addr),
