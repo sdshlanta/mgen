@@ -563,6 +563,7 @@ int main(int argc, char* argv[])
                     INFLUX_TS(((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000)),
                     INFLUX_END
                 );
+                ++report_count;
                 // report.Log(outfile, rxTime, rxTime, false);
                 if(MAX_LINE_SIZE <= used) {
                     send_udp_line(pClient_info, line, used);
