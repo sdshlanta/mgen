@@ -545,13 +545,14 @@ int main(int argc, char* argv[])
                     INFLUX_TS(((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000) + (report_count & 0x1FFF)),
                     INFLUX_END
                 );
+                puts(line);
                 bzero(line, used+1);
-                // report.Log(outfile, rxTime, rxTime, false);
-                if(MAX_LINE_SIZE <= used) {
-                    send_udp_line(pClient_info, line, used);
-                    used = 0;
-                }
                 used = 0;
+                // report.Log(outfile, rxTime, rxTime, false);
+                // if(MAX_LINE_SIZE <= used) {
+                //     send_udp_line(pClient_info, line, used);
+                //     used = 0;
+                // }
 
             }
             // we could dalso keep the analytic in a list and prune stale ones
