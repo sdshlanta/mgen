@@ -544,7 +544,7 @@ int main(int argc, char* argv[])
                 bzero(flow_str, sizeof(flow_str));
                 snprintf(flow_str, sizeof(flow_str), "%u", report.GetFlowId());
                 printf(
-                    "flag: %d, msg flow id: %u, report flow id: %s",
+                    "flag: %d, msg flow id: %u, report flow id: %s\n",
                     report.FlagIsSet(report.FLAG_FLOW_ID),
                     msg.GetFlowId(),
                     flow_str
