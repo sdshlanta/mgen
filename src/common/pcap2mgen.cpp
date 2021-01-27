@@ -541,9 +541,9 @@ int main(int argc, char* argv[])
 
                 inet_ntop(AF_INET, addr.GetRawHostAddress(), src_addr, sizeof(src_addr));
                 snprintf(src_port, sizeof(src_port), "%hu", addr.GetPort());
-
+                bzero(flow_str, sizeof(flow_str));
                 snprintf(flow_str, sizeof(flow_str), "%u", report.GetFlowId());
-
+                puts(flow_str);
                 used = format_line(&line, &len, used,
                     INFLUX_MEAS("mgen_report_post"),
                     INFLUX_TAG("dst_addr", dst_addr),
