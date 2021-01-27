@@ -192,7 +192,10 @@ bool OnCommand(const char* cmd, const char* val)
             free(scenario_name);
             scenario_name = strdup(val);
         }
-        fprintf(stderr, "pcap2mgen OnCommand() Error: missing argument to scenario\n");
+        else
+        {
+            fprintf(stderr, "pcap2mgen OnCommand() Error: missing argument to scenario\n");
+        }
     }
     else if (!strncmp("uuid", lowerCmd, len))
     {
@@ -201,8 +204,10 @@ bool OnCommand(const char* cmd, const char* val)
             free(scenario_uuid);
             scenario_uuid = strdup(val);
         }
-        fprintf(stderr, "pcap2mgen OnCommand() Error: missing argument to uuid\n");
-
+        else
+        {
+            fprintf(stderr, "pcap2mgen OnCommand() Error: missing argument to uuid\n");
+        }
     }
     else if (!strncmp("rxlog", lowerCmd, len))
     {
