@@ -502,7 +502,7 @@ int main(int argc, char* argv[])
 
         if (!srcAddr.IsValid()) continue;  // wasn't an IP packet
 
-        if (*((struct in_addr*)srcAddr.GetRawHostAddress()).sus_addr == node_src_ip.s_addr) continue;
+        // if (*((struct in_addr*)srcAddr.GetRawHostAddress()).sus_addr == node_src_ip.s_addr) continue;
 
         ProtoPktUDP udpPkt;
 	        if (!udpPkt.InitFromPacket(ipPkt)) continue;  // not a UDP packet
