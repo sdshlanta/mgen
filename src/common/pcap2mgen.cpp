@@ -68,11 +68,13 @@ const char* const CMD_LIST[] =
     "+window",    // Sets analytic window
     "+scenario",  // The name of the scenario
     "+uuid",      // The UUID of the scenario
+    "+hostip",     // Src IP to ignore
     NULL
 };
 
-char* scenario_name = strdup("NA");
-char* scenario_uuid = strdup("NA");
+char* scenario_name        = strdup("NA");
+char* scenario_uuid        = strdup("NA");
+struct in_addr node_src_ip = {0};
 
 void Usage()
 {
@@ -207,6 +209,20 @@ bool OnCommand(const char* cmd, const char* val)
         else
         {
             fprintf(stderr, "pcap2mgen OnCommand() Error: missing argument to uuid\n");
+        }
+    }
+    else if (!strncmp("hostip", lowerCmd, len))
+    {
+        if(NULL != val)
+        {
+            if(0 == inet_pton(AF_INET, val, &node_src_ip))
+            {
+                fprintf(stderr, "pcap2mgen OnCommand() Error: Invalid ip to hostip\n");    
+            }
+        }
+        else
+        {
+            fprintf(stderr, "pcap2mgen OnCommand() Error: missing argument to hostip\n");
         }
     }
     else if (!strncmp("rxlog", lowerCmd, len))
@@ -486,6 +502,8 @@ int main(int argc, char* argv[])
 
         if (!srcAddr.IsValid()) continue;  // wasn't an IP packet
 
+        if (*((struct in_addr*)srcAddr.GetRawHostAddress()).sus_addr == node_src_ip.s_addr) continue;
+
         ProtoPktUDP udpPkt;
 	        if (!udpPkt.InitFromPacket(ipPkt)) continue;  // not a UDP packet
 
@@ -543,6 +561,11 @@ int main(int argc, char* argv[])
                 snprintf(src_port, sizeof(src_port), "%hu", addr.GetPort());
                 bzero(flow_str, sizeof(flow_str));
                 snprintf(flow_str, sizeof(flow_str), "%u", report.GetFlowId());
+                if(report.FlagIsSet(report.FLAG_FLOW_ID)) {
+                    if(msg.GetFlowId() != report.GetFlowId()) {
+
+                    }
+                }
                 printf(
                     "flag: %d, msg flow id: %u, report flow id: %s\n",
                     report.FlagIsSet(report.FLAG_FLOW_ID),
@@ -550,68 +573,68 @@ int main(int argc, char* argv[])
                     flow_str
                 );
 
-                used = format_line(&line, &len, used,
-                    INFLUX_MEAS("mgen_report_post_test"),
-                    INFLUX_TAG("dst_addr", dst_addr),
-                    INFLUX_TAG("dst_port", dst_port),
-                    INFLUX_TAG("flow", flow_str),
-                    INFLUX_TAG("proto", "udp"),
-                    INFLUX_TAG("scenario", scenario_name),
-                    INFLUX_TAG("src_addr", src_addr),
-                    INFLUX_TAG("src_port", src_port),
-                    INFLUX_TAG("uuid", scenario_uuid),
-                    INFLUX_F_FLT("loss", report.GetLossFraction(), 6),
-                    INFLUX_F_FLT("rate", report.GetRateAve(), 4),
-                    INFLUX_F_FLT("window", report.GetWindowSize(), 6),
-                    INFLUX_F_FLT("min_latency", report.GetLatencyMin(), 6),
-                    INFLUX_F_FLT("max_latency", report.GetLatencyMax(), 6),
-                    INFLUX_F_FLT("avg_latency", report.GetLatencyAve(), 6),
-                    INFLUX_TS(((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000)),
-                    INFLUX_END
-                );
-                ++report_count;
-                // report.Log(outfile, rxTime, rxTime, false);
-                if(MAX_LINE_SIZE <= used) {
-                    send_udp_line(pClient_info, line, used);
-                    used = 0;
-                }
+                // used = format_line(&line, &len, used,
+                //     INFLUX_MEAS("mgen_report_post_test"),
+                //     INFLUX_TAG("dst_addr", dst_addr),
+                //     INFLUX_TAG("dst_port", dst_port),
+                //     INFLUX_TAG("flow", flow_str),
+                //     INFLUX_TAG("proto", "udp"),
+                //     INFLUX_TAG("scenario", scenario_name),
+                //     INFLUX_TAG("src_addr", src_addr),
+                //     INFLUX_TAG("src_port", src_port),
+                //     INFLUX_TAG("uuid", scenario_uuid),
+                //     INFLUX_F_FLT("loss", report.GetLossFraction(), 6),
+                //     INFLUX_F_FLT("rate", report.GetRateAve(), 4),
+                //     INFLUX_F_FLT("window", report.GetWindowSize(), 6),
+                //     INFLUX_F_FLT("min_latency", report.GetLatencyMin(), 6),
+                //     INFLUX_F_FLT("max_latency", report.GetLatencyMax(), 6),
+                //     INFLUX_F_FLT("avg_latency", report.GetLatencyAve(), 6),
+                //     INFLUX_TS(((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000)),
+                //     INFLUX_END
+                // );
+                // ++report_count;
+                // // report.Log(outfile, rxTime, rxTime, false);
+                // if(MAX_LINE_SIZE <= used) {
+                //     send_udp_line(pClient_info, line, used);
+                //     used = 0;
+                // }
 
             }
             // we could dalso keep the analytic in a list and prune stale ones
         }
-        // inet_ntop(AF_INET, msg.GetDstAddr().GetRawHostAddress(), dst_addr, sizeof(dst_addr));
-        // snprintf(dst_port, sizeof(dst_port), "%hu", msg.GetDstAddr().GetPort());
-        // inet_ntop(AF_INET, msg.GetSrcAddr().GetRawHostAddress(), src_addr, sizeof(src_addr));
-        // snprintf(src_port, sizeof(src_port), "%hu", msg.GetSrcAddr().GetPort());
-        // snprintf(msg_len, sizeof(msg_len), "%hu", msg.GetMsgLen());
-        // snprintf(flow_str, sizeof(flow_str), "%u", msg.GetFlowId());
-        // tx_time = (msg.GetTxTime());
-        // ProtoTime rxTime(hdr.ts);
-        // ProtoTime txTime(tx_time);
-        // // send_udp(pClient_info,
-        // used = format_line(&line, &len, used,
-        //     INFLUX_MEAS("mgen_recv_test"),
-        //     INFLUX_TAG("dst_addr", dst_addr),
-        //     INFLUX_TAG("dst_port", dst_port),
-        //     INFLUX_TAG("flow", flow_str),
-        //     INFLUX_TAG("proto", "udp"),
-        //     INFLUX_TAG("scenario", scenario_name),
-        //     INFLUX_TAG("src_addr", src_addr),
-        //     INFLUX_TAG("src_port", src_port),
-        //     INFLUX_TAG("uuid", scenario_uuid),
-        //     INFLUX_F_FLT("delay", rxTime.GetValue() - txTime.GetValue(), 6),
-        //     INFLUX_F_STR("gps", ""),
-        //     INFLUX_F_INT("sent", ((((tx_time.tv_sec)*1000000) + tx_time.tv_usec)* 1000)),
-        //     INFLUX_F_INT("seq", msg.GetSeqNum()),
-        //     INFLUX_F_INT("size", msg.GetMsgLen()),
-        //     INFLUX_TS(((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000) + (pkt_count & 0x0000000000001FFF)),
-        //     INFLUX_END
-        // );
+        inet_ntop(AF_INET, msg.GetDstAddr().GetRawHostAddress(), dst_addr, sizeof(dst_addr));
+        snprintf(dst_port, sizeof(dst_port), "%hu", msg.GetDstAddr().GetPort());
+        inet_ntop(AF_INET, msg.GetSrcAddr().GetRawHostAddress(), src_addr, sizeof(src_addr));
+        snprintf(src_port, sizeof(src_port), "%hu", msg.GetSrcAddr().GetPort());
+        snprintf(msg_len, sizeof(msg_len), "%hu", msg.GetMsgLen());
+        snprintf(flow_str, sizeof(flow_str), "%u", msg.GetFlowId());
+        tx_time = (msg.GetTxTime());
+        ProtoTime rxTime(hdr.ts);
+        ProtoTime txTime(tx_time);
+        // send_udp(pClient_info,
+        used = format_line(&line, &len, used,
+            INFLUX_MEAS("mgen_recv_post"),
+            INFLUX_TAG("dst_addr", dst_addr),
+            INFLUX_TAG("dst_port", dst_port),
+            INFLUX_TAG("flow", flow_str),
+            INFLUX_TAG("proto", "udp"),
+            INFLUX_TAG("scenario", scenario_name),
+            INFLUX_TAG("src_addr", src_addr),
+            INFLUX_TAG("src_port", src_port),
+            INFLUX_TAG("uuid", scenario_uuid),
+            INFLUX_F_FLT("delay", rxTime.GetValue() - txTime.GetValue(), 6),
+            INFLUX_F_STR("gps", ""),
+            INFLUX_F_INT("sent", ((((tx_time.tv_sec)*1000000) + tx_time.tv_usec)* 1000)),
+            INFLUX_F_INT("seq", msg.GetSeqNum()),
+            INFLUX_F_INT("size", msg.GetMsgLen()),
+            INFLUX_TS(((((hdr.ts.tv_sec)*1000000) + hdr.ts.tv_usec) * 1000) + (pkt_count & 0x0000000000001FFF)),
+            INFLUX_END
+        );
         ++pkt_count;
-        // if(MAX_LINE_SIZE - 1000 <= used) {
-        //     send_udp_line(pClient_info, line, used);
-        //     used = 0;
-        // }
+        if(MAX_LINE_SIZE - 1000 <= used) {
+            send_udp_line(pClient_info, line, used);
+            used = 0;
+        }
         // msg.LogRecvEvent(outfile, false, false, log_rx, false, true, (UINT32*)udpPkt.AccessPayload(), flush, ttl, hdr.ts);  
     }  // end while (pcap_next())
 
