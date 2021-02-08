@@ -37,7 +37,30 @@
 #include "mgenGlobals.h"
 #include "mgenPayload.h"
 #include <stdio.h>  // for FILE*
+#include <stdint.h>
 
+#if defined(__GNUC__) || defined(__GNUG__)
+struct __attribute__((__packed__)) MgenMsgBufHeader {
+#elif defined(__clang__) || defined(_MSC_VER)
+#pragma pack(1)
+struct __attribute__((__packed__)) MgenMsgBufHeader {
+#else
+struct MgenMsgBufHeader {
+#endif
+
+    UINT16 msg_len;  // htons
+    UINT8  version; 
+    UINT8  flags;
+    UINT32 flow_id;  // htonl
+    UINT32 seq_num;  // htonl
+    UINT32 tv_sec;   // htonl
+    UINT32 tv_usec;  // htonl
+    UINT16 dst_port; // htons
+    UINT8  dst_addr_type;
+    UINT8  dst_addr_len;
+};
+
+typedef struct MgenMsgBufHeader MgenMsgBuf_t; 
 
 // (TBD) rework MgenMsg class into more optimized form
 class Mgen;
@@ -203,6 +226,8 @@ class MgenMsg
                              UINT32               buflen);
     
     static const UINT32 CRC32_XOROT;
+    void PoolResetMsg(void);
+    void PoolInitMsg(void);
 
   protected:
     UINT16          msg_len;
@@ -238,5 +263,18 @@ class MgenMsg
     
     enum {FLAGS_OFFSET = 3};
 };  // end class MgenMsg    
+
+
+struct MgenMsgInitialiser {
+    void operator() (MgenMsg* msg) {
+        (*msg).PoolInitMsg();
+    }
+};
+
+struct MgenMsgReleaser {
+    void operator() (MgenMsg* msg) {
+        (*msg).PoolResetMsg();
+    }
+};
 
 #endif // _MGEN_MESSAGE

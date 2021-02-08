@@ -5,6 +5,14 @@
 #include "mgenGlobals.h"
 #include "mgenMsg.h"
 #include "mgenEvent.h"
+#include "mgenPool.hpp"
+
+// #define PARALLEL
+#ifdef PARALLEL
+#warning "PARALLEL IS DEFINED"
+#include <omp.h>
+#include <deque>
+#endif
 
 class MgenController;
 class MgenFlowList;
@@ -308,6 +316,10 @@ class MgenUdpTransport : public MgenSocketTransport
   private:	  
     unsigned int    group_count;	  
     bool            connect;
+    using MsgPool = MgenPool<MgenMsg, 5, MgenMsgInitialiser, MgenMsgReleaser>;
+    MsgPool                 msg_pool;
+    using AddrPool = MgenPool<ProtoAddress, 50, ProtoAddressInitialiser, ProtoAddressReleaser>;
+    AddrPool                addr_pool;
 }; // end class MgenUdpTransport
 
 /**

@@ -295,7 +295,7 @@ bool MgenFlow::DoOnEvent(const MgenEvent* event)
     
     
     // Set up msg for logging
-    MgenMsg theMsg;
+    
     theMsg.SetFlowId(flow_id);
     struct timeval currentTime;
     ProtoSystemTime(currentTime);
@@ -431,8 +431,7 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
     if (pattern.FlowPaused()
         &&
         !IsTransportChanging(event, tmpSrcPort, tmpDstAddr))
-    {
-        MgenMsg theMsg;
+    {   
         theMsg.SetFlowId(flow_id); 
         theMsg.SetDstAddr(tmpDstAddr);
         ProtoSystemTime(currentTime);
@@ -450,7 +449,7 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
         // The flow was set to 0 packets a second [0 n]
         if (eventPattern.FlowPaused())
         {
-            MgenMsg theMsg;
+            
             theMsg.SetFlowId(flow_id); 
             theMsg.SetDstAddr(dst_addr); // Previous flow is being turned off
             ProtoSystemTime(currentTime);
@@ -509,7 +508,7 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
 
     //  old_transport->RemoveFlow(this);
 
-    MgenMsg theMsg;
+    
     theMsg.SetFlowId(flow_id); 
     theMsg.SetDstAddr(dst_addr);
     
@@ -845,7 +844,7 @@ void MgenFlow::StopFlow()
 
   if (flow_transport) 
     {
-        MgenMsg theMsg;
+        
         theMsg.SetFlowId(flow_id); 
         theMsg.SetDstAddr(dst_addr);
         struct timeval currentTime;
@@ -942,7 +941,9 @@ bool MgenFlow::SendMessage()
         return false;  
     }
 
-    MgenMsg theMsg;
+    // MsgPool::pointer theMsg_p;
+    // theMsg_p = msg_pool.acquire();
+    // MgenMsg theMsg = *theMsg_p.get();
     theMsg.SetProtocol(protocol);
     unsigned int len = pattern.GetPktSize();
     theMsg.SetMgenMsgLen(len);
@@ -1159,6 +1160,7 @@ bool MgenFlow::SendMessage()
             tx_timer.Deactivate();
             flow_transport->StartOutputNotification();
         }
+        // theMsg_p.reset();
         return true;
     }
 
@@ -1182,7 +1184,7 @@ bool MgenFlow::SendMessage()
     {
         pending_messages++;
         flow_transport->AppendFlow(this);
-	
+
         if (queue_limit > 0 && pending_messages >= queue_limit)
             if (tx_timer.IsActive()) tx_timer.Deactivate();
 
@@ -1197,7 +1199,7 @@ bool MgenFlow::SendMessage()
         // intervals that socket output notification uses
         if ((result == MSG_SEND_FAILED)
             && pattern.UnlimitedRate())
-        {	    
+        {
             flow_transport->StopOutputNotification();
             socket_error = true;
             tx_timer.SetInterval(0.001);
@@ -1205,6 +1207,7 @@ bool MgenFlow::SendMessage()
                 timer_mgr.ActivateTimer(tx_timer);
         }
     }
+    // theMsg_p.reset();
     return false;
     
 } // MgenFlow::SendMessage
@@ -1227,7 +1230,7 @@ void MgenFlow::Reconnect()
         }
         struct timeval currentTime;
         ProtoSystemTime(currentTime);
-        MgenMsg theMsg;
+        
         theMsg.SetFlowId(flow_id);
         theMsg.SetDstAddr(dst_addr);
         flow_transport->LogEvent(RECONNECT_EVENT, &theMsg, currentTime);
@@ -1306,7 +1309,7 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
         // for this flow, remove it from the pending queue.
         if (!old_transport->TransmittingFlow(flow_id))
           {
-              MgenMsg theMsg;
+              
               theMsg.SetFlowId(flow_id); 
               theMsg.SetDstAddr(orig_dst_addr);
               struct timeval currentTime;

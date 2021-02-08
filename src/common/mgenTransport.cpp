@@ -15,6 +15,11 @@
 #else
 #include <unistd.h>
 #include <fcntl.h>
+
+#define PARALLEL
+#ifdef PARALLEL
+
+#endif
 #endif // UNIX
 
 MgenTransportList::MgenTransportList()
@@ -944,15 +949,18 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
             UINT32 alignedBuffer[MAX_SIZE/4];
             char* buffer = (char*)alignedBuffer;
             unsigned int len = MAX_SIZE;
-            ProtoAddress srcAddr;
-            while (theSocket.RecvFrom((char*)buffer, len, srcAddr))
+            AddrPool::pointer srcAddr_p = addr_pool.acquire();
+            ProtoAddress srcAddr = *srcAddr_p.get();
+            while (theSocket.RecvFrom((char*)buffer, len, srcAddr)) 
             {
                 if (len == 0) break;
                 if (mgen.GetLogFile() || mgen.ComputeAnalytics())
                 {
                     struct timeval currentTime;
                     ProtoSystemTime(currentTime);
-                    MgenMsg theMsg;
+                    MsgPool::pointer theMsg_p;
+                    theMsg_p = msg_pool.acquire();
+                    MgenMsg theMsg = *theMsg_p.get();
                     // the socket recvFrom gives us our srcAddr
                     theMsg.SetSrcAddr(srcAddr);
                     if (theMsg.Unpack(alignedBuffer, len, mgen.GetChecksumForce(), mgen.GetLogData()))
@@ -990,9 +998,11 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                         if (mgen.GetLogFile())
                             LogEvent(RERR_EVENT, &theMsg, currentTime);
                     }
+                    theMsg_p.reset();
                 }  // end if (NULL != mgen.GetLogFile())
                 len = MAX_SIZE;
             }  // end while(theSocket.RecvFrom())
+            srcAddr_p.reset();
             break;
         }  // end case ProtoSocket::RECV
         case ProtoSocket::SEND:

@@ -6,6 +6,7 @@
 #include "mgenAnalytic.h" 
 #include "gpsPub.h"
 #include "protokit.h"
+#include "mgenPool.hpp"
 #include <stdio.h>  // for FILE
 
 #ifdef _RAPR_JOURNAL
@@ -174,6 +175,9 @@ class MgenFlow
     MgenFlow*               next;  
     MgenFlow*               pending_next;
     MgenFlow*               pending_prev;
+    using MsgPool = MgenPool<MgenMsg,5, MgenMsgInitialiser, MgenMsgReleaser>;
+    MsgPool                 msg_pool;
+    MgenMsg                 theMsg;
 };  // end class MgenFlow
 
 /**

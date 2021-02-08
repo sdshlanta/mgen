@@ -80,11 +80,22 @@ MgenMsg& MgenMsg::operator=(const MgenMsg& x)
 }
 */
 
+void MgenMsg::PoolResetMsg()
+{
+}
+
+void MgenMsg::PoolInitMsg()
+{
+}
+
+
 UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecksum, UINT32& tx_checksum)
 {
     char* buffer = (char*)alignedBuffer;
     UINT16 len = 0;
     
+    // bzero(alignedBuffer, bufferLen);
+
     // If these assertions fail, the code base needs some reworking
     // for compiler with different size settings (or set compiler
     // settings so these values work)
@@ -94,7 +105,7 @@ UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecks
     
     UINT16 msgLen = bufferLen;
 
-    UINT16 temp16 = htons(msg_len);
+    UINT16 temp16 = __builtin_bswap16(msg_len);
     memcpy(buffer+len,&temp16,sizeof(UINT16));
     len += sizeof(UINT16);
     
@@ -106,26 +117,26 @@ UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecks
     
     // flow_id
     UINT32 temp32;
-    temp32 = htonl(flow_id);
+    temp32 = __builtin_bswap32(flow_id);
     memcpy(buffer+len, &temp32, sizeof(INT32)); 
     len += sizeof(INT32);
     
     // seq_num
-    temp32 = htonl(seq_num);
+    temp32 = __builtin_bswap32(seq_num);
     memcpy(buffer+len, &temp32, sizeof(INT32));
     len += sizeof(INT32);
     
     // tx_time(seconds)
-    temp32 = htonl(tx_time.tv_sec);
+    temp32 = __builtin_bswap32(tx_time.tv_sec);
     memcpy(buffer+len, &temp32, sizeof(INT32));
     len += sizeof(INT32);
     // tx_time(microseconds)
-    temp32 = htonl(tx_time.tv_usec);
+    temp32 = __builtin_bswap32(tx_time.tv_usec);
     memcpy(buffer+len, &temp32, sizeof(INT32));
     len += sizeof(INT32);
     
     // dst_port
-    temp16 = htons(dst_addr.GetPort());
+    temp16 = __builtin_bswap16(dst_addr.GetPort());
     memcpy(buffer+len, &temp16, sizeof(INT16));
     len += sizeof(INT16);
     // dst_addr fields
@@ -178,7 +189,7 @@ UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecks
     default:
       addrType = INVALID_ADDRESS; 
     }
-    if (host_addr.IsValid())
+    if (__glibc_likely(addrType != INVALID_ADDRESS))
       addrLen = host_addr.GetLength();
     else
       addrLen = 0;
@@ -187,8 +198,8 @@ UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecks
     if (msgLen >= (len + addrLen + 4))
     {
         // host_port
-        if (host_addr.IsValid())
-          temp16 = htons(host_addr.GetPort());
+        if (__glibc_likely(addrType != INVALID_ADDRESS))
+          temp16 = __builtin_bswap16(host_addr.GetPort());
         else
           temp16 = 0;
         memcpy(buffer+len, &temp16, sizeof(INT16));
@@ -198,18 +209,18 @@ UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecks
         // host_addr(len)
         buffer[len++] = (char)addrLen;
         // host_addr(addr)
-        if (addrLen)
+        if (__glibc_likely(addrLen))
           memcpy(buffer+len, host_addr.GetRawHostAddress(), addrLen);
         len += addrLen;
     }
     else
     {
-        if (msgLen < len)
+        if (__glibc_unlikely(msgLen < len))
         {
             DMSG(0, "MgenMsg::Pack() Error: minimum MGEN message size not met\n");
             return 0;
         }
-        memset(buffer+len, 0, msgLen-len);  
+        // memset(buffer+len, 0, msgLen-len);
         packet_header_len = (UINT16)len;      
         return msgLen;
     } 
@@ -218,15 +229,15 @@ UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecks
     if (msgLen >= (len + 13))
     {
         // latitude
-        temp32 = htonl((UINT32)((latitude + 180.0)*60000.0));
+        temp32 = __builtin_bswap32((UINT32)((latitude + 180.0)*60000.0));
         memcpy(buffer+len, &temp32, sizeof(INT32));
         len += sizeof(INT32);
         // longitude
-        temp32 = htonl((UINT32)((longitude + 180.0)*60000.0));
+        temp32 = __builtin_bswap32((UINT32)((longitude + 180.0)*60000.0));
         memcpy(buffer+len, &temp32, sizeof(INT32));
         len += sizeof(INT32);
         // altitude
-        temp32 = htonl(altitude);
+        temp32 = __builtin_bswap32(altitude);
         memcpy(buffer+len, &temp32, sizeof(INT32));
         len += sizeof(INT32);
         // status
@@ -234,7 +245,7 @@ UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecks
     }
     else
     {
-        memset(buffer+len, 0, msgLen-len);
+        // memset(buffer+len, 0, msgLen-len);
         packet_header_len = (UINT16)len;      
         return msgLen;    
     }   
@@ -250,13 +261,13 @@ UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecks
     }
     if (msgLen >= (len+2))
     {
-        UINT16 tmp16 = htons(payload_len);
+        UINT16 tmp16 = __builtin_bswap16(payload_len);
         memcpy(buffer+len, &tmp16, 2);
         len += 2;
     }
     else
     {
-        memset(buffer+len, 0, msgLen - len);
+        // memset(buffer+len, 0, msgLen - len);
         packet_header_len = (UINT16)len;      
         return msgLen;
     }
@@ -269,7 +280,7 @@ UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecks
     }
     else
     {
-        memset(buffer+len-2, 0, 2);// zero payload_len
+        // memset(buffer+len-2, 0, 2);// zero payload_len
     }
     // Zero-fill rest of buffer
     if (msgLen > len)
@@ -288,7 +299,7 @@ UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecks
             memset(buffer+len,0,1);			  
         }
 #else
-        memset(buffer+len, 0, msgLen - len);
+        // memset(buffer+len, 0, msgLen - len);
 #endif //RANDOM_FILL
     }
     if (includeChecksum)
@@ -320,7 +331,7 @@ bool MgenMsg::Unpack(UINT32* alignedBuffer, UINT16 bufferLen, bool forceChecksum
     
     unsigned int len = 0;
     
-    if (bufferLen < MIN_SIZE) 
+    if (__glibc_unlikely(bufferLen < MIN_SIZE)) 
 	{
         DMSG(0, "MgenMsg::Unpack() error: INT16 message\n");
         msg_error = ERROR_LENGTH;
@@ -329,12 +340,12 @@ bool MgenMsg::Unpack(UINT32* alignedBuffer, UINT16 bufferLen, bool forceChecksum
     const char* buffer = (const char*)alignedBuffer;
     UINT16 temp16;
     memcpy(&temp16,buffer+len,sizeof(INT16));
-    msg_len = ntohs(temp16);
+    msg_len = __builtin_bswap16(temp16);
     len += sizeof (INT16);
     
     // version
     version = (UINT8)buffer[len++];
-    if (version != VERSION)
+    if (__glibc_unlikely(version != VERSION))
 	{
         DMSG(0, "MgenMsg::Unpack() error: bad protocol version: %d\n", version);
         msg_error = ERROR_VERSION;
@@ -348,26 +359,26 @@ bool MgenMsg::Unpack(UINT32* alignedBuffer, UINT16 bufferLen, bool forceChecksum
     // flow_id
     UINT32 temp32;
     memcpy(&temp32, buffer+len, sizeof(INT32));
-    flow_id = ntohl(temp32);
+    flow_id = __builtin_bswap32(temp32);
     len += sizeof(INT32);
     
     // seq_num 
     memcpy(&temp32, buffer+len, sizeof(INT32));
-    seq_num = ntohl(temp32);
+    seq_num = __builtin_bswap32(temp32);
     len += sizeof(INT32);
     
     // tx_sec(seconds)
     memcpy(&temp32, buffer+len, sizeof(INT32));
-    tx_time.tv_sec = ntohl(temp32);
+    tx_time.tv_sec = __builtin_bswap32(temp32);
     len += sizeof(INT32);
     // tx_usec(microseconds)
     memcpy(&temp32, buffer+len, sizeof(INT32));
-    tx_time.tv_usec = ntohl(temp32);
+    tx_time.tv_usec = __builtin_bswap32(temp32);
     len += sizeof(INT32);
     
     // dst_port
     memcpy(&temp16, buffer+len, sizeof(INT16));
-    UINT16 dstPort = ntohs(temp16);
+    UINT16 dstPort = __builtin_bswap16(temp16);
     len += sizeof(INT16);
     
     // dst_addr(type)
@@ -401,7 +412,7 @@ bool MgenMsg::Unpack(UINT32* alignedBuffer, UINT16 bufferLen, bool forceChecksum
 	{
         // host_port
         memcpy(&temp16, buffer+len, sizeof(INT16));
-        UINT16 hostPort = ntohs(temp16);
+        UINT16 hostPort = __builtin_bswap16(temp16);
         len += sizeof(INT16);
         
         // host_addr(type)
@@ -450,15 +461,15 @@ bool MgenMsg::Unpack(UINT32* alignedBuffer, UINT16 bufferLen, bool forceChecksum
 	{
         // latitude
         memcpy(&temp32, buffer+len, sizeof(INT32));
-        latitude = ((double)ntohl(temp32))/60000.0 - 180.0;
+        latitude = ((double)__builtin_bswap32(temp32))/60000.0 - 180.0;
         len += sizeof(INT32);
         // longitude
         memcpy(&temp32, buffer+len, sizeof(INT32));
-        longitude = ((double)ntohl(temp32))/60000.0 - 180.0;
+        longitude = ((double)__builtin_bswap32(temp32))/60000.0 - 180.0;
         len += sizeof(INT32);
         // altitude 
         memcpy(&temp32, buffer+len, sizeof(INT32));
-        altitude = ntohl(temp32);
+        altitude = __builtin_bswap32(temp32);
         len += sizeof(INT32);
         // status
         gps_status = (GPSStatus)buffer[len++];
@@ -482,7 +493,7 @@ bool MgenMsg::Unpack(UINT32* alignedBuffer, UINT16 bufferLen, bool forceChecksum
     if ((len+2) <= bufferLen)
     {
         memcpy(&temp16, buffer+len, sizeof(INT16));
-        payload_len = ntohs(temp16);
+        payload_len = __builtin_bswap16(temp16);
         len += 2;
         packet_header_len = (UINT16)len;  
         if ((0 != payload_len) && ((len+payload_len) <= bufferLen))
@@ -507,7 +518,7 @@ bool MgenMsg::WriteChecksum(UINT32& tx_checksum,UINT8* buffer,UINT32 bufferLen)
         tx_checksum = (tx_checksum ^ CRC32_XOROT);
         
         DMSG(2,"Wrote: %lu at: %lu\n",tx_checksum,checksumPosition);
-        tx_checksum = htonl(tx_checksum); 
+        tx_checksum = __builtin_bswap32(tx_checksum); 
         
         memcpy(buffer+checksumPosition,&tx_checksum,4);
         
@@ -659,18 +670,18 @@ bool MgenMsg::LogRecvError(FILE*                    logFile,
         header[index++] = '\0';
         // set "recordLength" (Note we don't save payload for SEND events)
         UINT16 recordLength = 12 + src_addr.GetLength() + sizeof(INT32);
-        UINT16 temp16 = htons(recordLength);
+        UINT16 temp16 = __builtin_bswap16(recordLength);
         memcpy(header+index, &temp16, sizeof(INT16));
         index += sizeof(INT16);
         // set "eventTime" fields
-        UINT32 temp32 = htonl(theTime.tv_sec);
+        UINT32 temp32 = __builtin_bswap32(theTime.tv_sec);
         memcpy(header+index, &temp32, sizeof(INT32));
         index += sizeof(INT32);
-        temp32 = htonl(theTime.tv_usec);
+        temp32 = __builtin_bswap32(theTime.tv_usec);
         memcpy(header+index, &temp32, sizeof(INT32));
         index += sizeof(INT32);
         // set "srcPort"
-        temp16 = htons(src_addr.GetPort());
+        temp16 = __builtin_bswap16(src_addr.GetPort());
         memcpy(header+index, &temp16, sizeof(INT16));
         index += sizeof(INT16);
         // set "src_addrType"
@@ -696,7 +707,7 @@ bool MgenMsg::LogRecvError(FILE*                    logFile,
         
         // set "errorCode"
         INT32 errorCode = (INT32)msg_error;
-        errorCode = ntohl(errorCode);
+        errorCode = __builtin_bswap32(errorCode);
         memcpy(header+index, &errorCode, sizeof(INT32));
         index += sizeof(INT32);
         
@@ -767,21 +778,21 @@ bool MgenMsg::LogTcpConnectionEvent(FILE*                     logFile,
         {
             recordLength += host_addr.GetLength() + 4;
         }
-        UINT16 temp16 = htons(recordLength);
+        UINT16 temp16 = __builtin_bswap16(recordLength);
         memcpy(header+index, &temp16, sizeof(INT16));
         index += sizeof(INT16);
         
         // set "eventTime" fields
-        UINT32 temp32 = htonl(theTime.tv_sec);
+        UINT32 temp32 = __builtin_bswap32(theTime.tv_sec);
         memcpy(header+index, &temp32, sizeof(INT32));
         index += sizeof(INT32);
         
-        temp32 = htonl(theTime.tv_usec);
+        temp32 = __builtin_bswap32(theTime.tv_usec);
         memcpy(header+index, &temp32, sizeof(INT32));
         index += sizeof(INT32);
         
         // set "port"
-        temp16 = htons(addr.GetPort());
+        temp16 = __builtin_bswap16(addr.GetPort());
         memcpy(header+index, &temp16, sizeof(INT16));
         index += sizeof(INT16);
         
@@ -806,7 +817,7 @@ bool MgenMsg::LogTcpConnectionEvent(FILE*                     logFile,
         memcpy(header+index, addr.GetRawHostAddress(), addrLen);
         index += addrLen;
         // set "dstPort"
-        temp16 = htons(src_addr.GetPort());
+        temp16 = __builtin_bswap16(src_addr.GetPort());
         memcpy(header+index,&temp16,sizeof(INT16));
         index += sizeof(INT16);
         
@@ -814,14 +825,14 @@ bool MgenMsg::LogTcpConnectionEvent(FILE*                     logFile,
         // ConvertBinaryLog uses flowID to determine whether 
         // it is a client or server event in some cases
         INT32 flowID = (INT32)flow_id; 
-        flowID = htonl(flowID);
+        flowID = __builtin_bswap32(flowID);
         memcpy(header+index,&flowID,sizeof(INT32));
         index += sizeof(INT32);
         
         if (host_addr.IsValid())
         {
             //set "hostAddr"
-            temp16 = htons(host_addr.GetPort());
+            temp16 = __builtin_bswap16(host_addr.GetPort());
             memcpy(header+index,&temp16,sizeof(INT16));
             index += sizeof(INT16);
             
@@ -966,19 +977,19 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
         // set "recordLength" (Note we only save payload for RECV events)
         UINT16 recordLength = 0;
         recordLength = 12 + src_addr.GetLength() + packet_header_len + payload_len;      
-        UINT16 temp16 = htons(recordLength);
+        UINT16 temp16 = __builtin_bswap16(recordLength);
         memcpy(header+index, &temp16, sizeof(INT16));
         index += sizeof(INT16);
         // set "eventTime" fields
-        UINT32 temp32 = htonl(theTime.tv_sec);
+        UINT32 temp32 = __builtin_bswap32(theTime.tv_sec);
         memcpy(header+index, &temp32, sizeof(INT32));
         index += sizeof(INT32);        
-        temp32 = htonl(theTime.tv_usec);
+        temp32 = __builtin_bswap32(theTime.tv_usec);
         memcpy(header+index, &temp32, sizeof(INT32));
         index += sizeof(INT32);
         
         // set "srcPort"
-        temp16 = htons(src_addr.GetPort());
+        temp16 = __builtin_bswap16(src_addr.GetPort());
         memcpy(header+index, &temp16, sizeof(INT16));
         index += sizeof(INT16);
         
@@ -1169,7 +1180,7 @@ bool MgenMsg::LogSendEvent(FILE*    logFile,
         {
             recordLength += sizeof(INT32);
         }
-        UINT16 temp16 = htons(recordLength);
+        UINT16 temp16 = __builtin_bswap16(recordLength);
         memcpy(header+index, &temp16, sizeof(INT16));
         index += sizeof(INT16);
         
@@ -1183,7 +1194,7 @@ bool MgenMsg::LogSendEvent(FILE*    logFile,
         // processing...
         if (protocol == TCP)
         {
-            UINT32 temp32 = htonl(mgen_msg_len);
+            UINT32 temp32 = __builtin_bswap32(mgen_msg_len);
             memcpy(header+index,&temp32,sizeof(UINT32));
             index += sizeof(INT32);
         }
@@ -1265,10 +1276,10 @@ void MgenMsg::LogDrecEvent(LogEventType eventType, const DrecEvent *event, UINT1
         index += 2;
         
         // Fill in "eventTime" field
-        unsigned int temp32 = htonl(eventTime.tv_sec);
+        unsigned int temp32 = __builtin_bswap32(eventTime.tv_sec);
         memcpy(buffer+index, &temp32, sizeof(INT32));
         index += sizeof(INT32);
-        temp32 = htonl(eventTime.tv_usec);
+        temp32 = __builtin_bswap32(eventTime.tv_usec);
         memcpy(buffer+index, &temp32, sizeof(INT32));
         index += sizeof(INT32);
         
@@ -1282,7 +1293,7 @@ void MgenMsg::LogDrecEvent(LogEventType eventType, const DrecEvent *event, UINT1
                 // zero second "reserved" field
                 buffer[index++] = 0;
                 // set "portNumber" field
-                UINT16 temp16 = htons(portNumber);
+                UINT16 temp16 = __builtin_bswap16(portNumber);
                 memcpy(buffer+index, &temp16, sizeof(INT16));
                 index += sizeof(INT16);
                 break;
@@ -1331,7 +1342,7 @@ void MgenMsg::LogDrecEvent(LogEventType eventType, const DrecEvent *event, UINT1
         
         // Set the "recordLength" field
         const UINT16 RECORD_LENGTH_OFFSET = 2;
-        UINT16 temp16 = htons(index - (RECORD_LENGTH_OFFSET+2));
+        UINT16 temp16 = __builtin_bswap16(index - (RECORD_LENGTH_OFFSET+2));
         memcpy(buffer+RECORD_LENGTH_OFFSET, &temp16, sizeof(INT16));
         
         // Write record to log file
@@ -1539,7 +1550,7 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
         Protocol theProtocol = (Protocol)header[1];
         UINT16 recordLength;
         memcpy(&recordLength, header+2, sizeof(INT16));
-        recordLength = ntohs(recordLength);
+        recordLength = __builtin_bswap16(recordLength);
         if (recordLength > BINARY_RECORD_MAX)
         {
             DMSG(0, "Mgen::ConvertBinaryLog() record len:%hu exceeds maximum length\n", recordLength);
@@ -1563,15 +1574,15 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
                   struct timeval eventTime;
                   UINT32 temp32;
                   memcpy(&temp32, buffer+index, sizeof(INT32));
-                  eventTime.tv_sec = ntohl(temp32);
+                  eventTime.tv_sec = __builtin_bswap32(temp32);
                   index += sizeof(INT32);
                   memcpy(&temp32, buffer+index, sizeof(INT32));
-                  eventTime.tv_usec = ntohl(temp32);
+                  eventTime.tv_usec = __builtin_bswap32(temp32);
                   index += sizeof(INT32);
                   // get "srcPort"
                   UINT16 temp16;
                   memcpy(&temp16, buffer+index, sizeof(INT16));
-                  UINT16 srcPort = ntohs(temp16);
+                  UINT16 srcPort = __builtin_bswap16(temp16);
                   index += sizeof(INT16);
                   // get "srcAddrType"
                   ProtoAddress::Type addrType;
@@ -1615,7 +1626,7 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
                   {
                       UINT32 temp32;
                       memcpy(&temp32,buffer+index,sizeof(INT32));
-                      msg.SetMgenMsgLen(ntohl(temp32));
+                      msg.SetMgenMsgLen(__builtin_bswap32(temp32));
                       index += sizeof(UINT32);
 
                   }
@@ -1634,10 +1645,10 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
                   struct timeval eventTime;
                   UINT32 temp32;
                   memcpy(&temp32, buffer+index, sizeof(INT32));
-                  eventTime.tv_sec = ntohl(temp32);
+                  eventTime.tv_sec = __builtin_bswap32(temp32);
                   index += sizeof(INT32);
                   memcpy(&temp32, buffer+index, sizeof(INT32));
-                  eventTime.tv_usec = ntohl(temp32);
+                  eventTime.tv_usec = __builtin_bswap32(temp32);
                   index += sizeof(INT32);
                   // get "protocol"
                   const char* protoName = 
@@ -1647,7 +1658,7 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
                   // get "portNumber"
                   UINT16 temp16;
                   memcpy(&temp16, buffer+index, sizeof(INT16));
-                  UINT16 portNumber = ntohs(temp16);
+                  UINT16 portNumber = __builtin_bswap16(temp16);
                   // Output text log format
                   Mgen::LogTimestamp(logFile, eventTime, localTime);
                   Mgen::Log(logFile, "%s proto>%s port>%hu\n",
@@ -1662,15 +1673,15 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
                   struct timeval eventTime;
                   UINT32 temp32;
                   memcpy(&temp32, buffer+index, sizeof(INT32));
-                  eventTime.tv_sec = ntohl(temp32);
+                  eventTime.tv_sec = __builtin_bswap32(temp32);
                   index += sizeof(INT32);
                   memcpy(&temp32, buffer+index, sizeof(INT32));
-                  eventTime.tv_usec = ntohl(temp32);
+                  eventTime.tv_usec = __builtin_bswap32(temp32);
                   index += sizeof(INT32);
                   // get "groupPort"
                   UINT16 temp16;
                   memcpy(&temp16, buffer+index, sizeof(INT16));
-                  UINT16 groupPort = ntohs(temp16);
+                  UINT16 groupPort = __builtin_bswap16(temp16);
                   index += sizeof(INT16);
                   // get "groupAddrType"
                   ProtoAddress::Type addrType;
@@ -1718,10 +1729,10 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
                   struct timeval eventTime;
                   UINT32 temp32;
                   memcpy(&temp32, buffer+index, sizeof(INT32));
-                  eventTime.tv_sec = ntohl(temp32);
+                  eventTime.tv_sec = __builtin_bswap32(temp32);
                   index += sizeof(INT32);
                   memcpy(&temp32, buffer+index, sizeof(INT32));
-                  eventTime.tv_usec = ntohl(temp32);
+                  eventTime.tv_usec = __builtin_bswap32(temp32);
                   index += sizeof(INT32);
                   Mgen::LogTimestamp(logFile, eventTime, localTime);
                   Mgen::Log(logFile, "%s\n", eventName);
@@ -1739,16 +1750,16 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
                   struct timeval eventTime;
                   UINT32 temp32;
                   memcpy(&temp32, buffer+index, sizeof(INT32));
-                  eventTime.tv_sec = ntohl(temp32);
+                  eventTime.tv_sec = __builtin_bswap32(temp32);
                   index += sizeof(INT32);
                   memcpy(&temp32, buffer+index, sizeof(INT32));
-                  eventTime.tv_usec = ntohl(temp32);
+                  eventTime.tv_usec = __builtin_bswap32(temp32);
                   index += sizeof(INT32);
 
                   // get "srcPort"
                   UINT16 temp16;
                   memcpy(&temp16, buffer+index, sizeof(INT16));
-                  UINT16 port = ntohs(temp16);
+                  UINT16 port = __builtin_bswap16(temp16);
                   index += sizeof(INT16);
 
                   // get "srcAddrType"
@@ -1776,7 +1787,7 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
                   addr.SetPort(port);
                   // get "dstPort"
                   memcpy(&temp16,buffer+index,sizeof(INT16));
-                  UINT16 dstPort = ntohs(temp16);
+                  UINT16 dstPort = __builtin_bswap16(temp16);
                   index += sizeof(INT16);              
 
                   // get "flow_id" (it might not exist - its' how we
@@ -1784,7 +1795,7 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
                   // for now)
                   UINT32 flow_id = 0;
                   memcpy(&temp32,buffer+index,sizeof(UINT32));
-                  flow_id = ntohl(temp32);
+                  flow_id = __builtin_bswap32(temp32);
                   index += sizeof(UINT32);	    
 
                   ProtoAddress hostAddr;
@@ -1793,7 +1804,7 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
                   {
 
                       memcpy(&temp16, buffer+index, sizeof(INT16));
-                      UINT16 hostPort = ntohs(temp16);
+                      UINT16 hostPort = __builtin_bswap16(temp16);
                       index += sizeof(INT16);
                       // get "hostAddrType"
                       switch (buffer[index++])
