@@ -949,9 +949,11 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
             UINT32 alignedBuffer[MAX_SIZE/4];
             char* buffer = (char*)alignedBuffer;
             unsigned int len = MAX_SIZE;
-            AddrPool::pointer srcAddr_p = addr_pool.acquire();
-            MsgPool::pointer theMsg_p;
-            ProtoAddress srcAddr = *srcAddr_p.get();
+            // AddrPool::pointer srcAddr_p = addr_pool.acquire();
+            // MsgPool::pointer theMsg_p;
+            // = *srcAddr_p.get();
+            ProtoAddress srcAddr;
+            MgenMsg theMsg;
             while (theSocket.RecvFrom((char*)buffer, len, srcAddr)) 
             {
                 if (len == 0) break;
@@ -960,8 +962,8 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                     struct timeval currentTime;
                     ProtoSystemTime(currentTime);
                     
-                    theMsg_p = msg_pool.acquire();
-                    MgenMsg theMsg = *theMsg_p.get();
+                    // theMsg_p = msg_pool.acquire();
+                    //  = *theMsg_p.get();
                     // the socket recvFrom gives us our srcAddr
                     theMsg.SetSrcAddr(srcAddr);
                     if (theMsg.Unpack(alignedBuffer, len, mgen.GetChecksumForce(), mgen.GetLogData()))
@@ -999,7 +1001,7 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                         if (mgen.GetLogFile())
                             LogEvent(RERR_EVENT, &theMsg, currentTime);
                     }
-                    theMsg_p.reset();
+                    // theMsg_p.reset();
                 }  // end if (NULL != mgen.GetLogFile())
                 len = MAX_SIZE;
             }  // end while(theSocket.RecvFrom())
