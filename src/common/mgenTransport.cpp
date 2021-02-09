@@ -950,6 +950,7 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
             char* buffer = (char*)alignedBuffer;
             unsigned int len = MAX_SIZE;
             AddrPool::pointer srcAddr_p = addr_pool.acquire();
+            MsgPool::pointer theMsg_p;
             ProtoAddress srcAddr = *srcAddr_p.get();
             while (theSocket.RecvFrom((char*)buffer, len, srcAddr)) 
             {
@@ -958,7 +959,7 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                 {
                     struct timeval currentTime;
                     ProtoSystemTime(currentTime);
-                    MsgPool::pointer theMsg_p;
+                    
                     theMsg_p = msg_pool.acquire();
                     MgenMsg theMsg = *theMsg_p.get();
                     // the socket recvFrom gives us our srcAddr
@@ -1002,7 +1003,6 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                 }  // end if (NULL != mgen.GetLogFile())
                 len = MAX_SIZE;
             }  // end while(theSocket.RecvFrom())
-            srcAddr_p.reset();
             break;
         }  // end case ProtoSocket::RECV
         case ProtoSocket::SEND:
