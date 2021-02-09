@@ -2,6 +2,7 @@
 #include <iostream>
 #include <memory>
 #include <functional>
+#include <algorithm>
 #include "protoAddress.h"
 
 struct ProtoAddressInitialiser {
